@@ -1,0 +1,330 @@
+---
+title: "Final Paper"
+author: "STOR 320.02 Group 19"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output: html_document
+---
+```{r setup, echo=FALSE, warning= F, message= F}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(modelr)
+library(plotly)
+#Put Necessary Libraries Here
+```
+
+```{r, echo=FALSE, message= F, warning= F}
+recentgrads<-read_csv("C:/Users/Varun/Downloads/recent-grads.csv")
+```
+
+# INTRODUCTION
+
+For many students, much thought goes into deciding a college major. Some students know exactly what their passion is from a young age, while others start college completely undecided. Additionally, many students change their minds about what they want to major in while in college, even multiple times. Many factors come into play when choosing what course of study to pursue for the next four or more years. These different elements are analyzed in depth in this analysis in an attempt to provide clear, accurate information to aid future students in their search for a college major. 
+
+The first part of the analysis focuses on creating the best model in order to accurately predict the median salary of each major given a selection of variables. Given that salary can play a large role in the quality of life of a person, many students may choose a college major that is known to have higher salaries post-graduation. Other evolving factors that students now have to consider when looking at prospective salaries and majors include the share of women in the field, and the unemployment rate.  Having a relatively precise model is extremely important so that students are able to make informed decisions based on reliable and accurate data. 
+
+The second part of the analysis looks at how numerical data corresponds to groups given to us based on categorical variables. Once again, based off a selection of variables, the category of the major was predicted and was also assigned a binary value, indicating if that major is part of the STEM field or not. This allows a more holistic view of each major since more than just salary is being analyzed. With this knowledge, the preconceptions of each major can be either confirmed or denied, allowing students to, once again, have reliable information to base their decisions on. 
+
+
+
+# DATA
+
+The College Majors dataset used in this analysis is collected from the Census Bureau and compiled into a set of files called the American Community Survey Public Use Microseries 2010 - 2012. This data set was analyzed by FiveThirtyEight. FiveThirtyEight is an analytics-driven internet news source. This website, whose name comes from the number of votes in the Electoral College, focuses its articles on politics, sports, science and health, economics, and culture, with the bulk of the articles focusing on politics and sports. In all of their articles, they include an analysis of data that has been collected. For politics, this is primarily polls, which they evaluate how accurate and unbiased each poll is before taking the results as factual. For sports, much of the data they use is built up from results of prior games, and for each major sports league, they maintain a ratings sySTEM that is updated after every game. For our data set that we focused our project on, they compiled data for students in 173 different majors from schools across the country and looked at different descriptive statistics for each major. Their findings were published in the article “The Economic Guide To Picking A College Major”, which gives an overview of college majors and their potential to have successful careers post graduation. 
+
+Each observation in this data corresponds to one of the 173 unique majors and is a sample of US citizens who have completed an undergraduate or graduate program. This dataset includes several variables regarding college majors, employment status, and salary post graduation. There are two categorical variables in this dataset, Major and Major Category, and 17 continuous variables. The variables studied most extensively in this analysis are Major, Unemployment Rate, Median Salary, and Share Women. A new variable, IQR, was added to the data as a potential factor for predictive modeling as well. All of these variables are associated with a major and each major consists of a varying number of individuals. 
+
+The first half of the analysis includes adding a binary variable called STEM, which would indicate if the major is considered part of the STEM discipline or not. STEM stands for Science, Technology, Engineering, and Mathematics which encompasses a multitude of studies. Majors such as biology and chemistry fall under the term natural sciences and mathematics and statistics fall under formal sciences, all of which are part of the STEM field as a whole. One deviation of this is the social sciences which are actually categorized with the humanities instead. Other majors, however, are more difficult to classify. For example, agricultural science was identified as STEM major, even though it doesn't align with the typical ideals of a science. 
+
+
+```{r, echo = F}
+recentgradsnumericaldata<-recentgrads[-c(1,22),]
+recentgradsnumericaldata$IQR<-recentgradsnumericaldata$P75th-recentgradsnumericaldata$P25th
+recentgradsnumericaldata$STEM = 0
+for(row in 1:nrow(recentgradsnumericaldata)){
+items<- recentgradsnumericaldata[row, "Major_category"]
+recentgradsnumericaldata[row, "STEM"]
+if(items == "Engineering"){recentgradsnumericaldata[row, "STEM"] = 1}
+if(items == "Health"){recentgradsnumericaldata[row, "STEM"] =1}
+if(items == "Physical Sciences"){recentgradsnumericaldata[row, "STEM"] =1}
+if(items == "Computers & Mathematics"){recentgradsnumericaldata[row, "STEM"] =1}
+if(items == "Biology & Life Science"){recentgradsnumericaldata[row, "STEM"] =1}
+if(items == "Agriculture & Natural Resources"){recentgradsnumericaldata[row, "STEM"] = 1}
+}
+```
+
+```{r, echo = F}
+datarecentgrads = recentgradsnumericaldata %>% dplyr::select(Major, ShareWomen, Unemployment_rate, Median, Total, Part_time, Non_college_jobs, P25th, P75th, STEM) 
+head(datarecentgrads)
+```
+
+
+
+```{r, echo = F}
+ggplot(recentgrads, aes(x = Median)) + geom_histogram(binwidth = 5000, fill = "lightblue") + ggtitle("Majors by Salary Range") + ylab("Number of Majors") + xlab("Median Salary")
+```
+
+
+Above is a histogram depicting the count of majors that fall within each salary range in $5,000 increments. Notice the outlier of Petroleum Engineering is well to the right of the rest of the histogram.
+
+
+
+# RESULTS
+
+In order to answer the first question, we created the variables STEM and IQR, which was calculated by subtracting the P25th of each major from its P75th, the first and third quartiles of a major’s starting salary. Because Food Science did not have data on Median Salary, which is what we were trying to predict, we left it out of our models. We also left out Petroleum Engineering because it was such an extreme outlier, as evidenced by our histogram in the Data section. All of our models had their R-Squared values increase by around 3% after taking out Petroleum Engineering, and including Petroleum Engineering caused our model to overestimate nearly every other major’s median salary.
+
+When building a predictive model for Median Salary, we built 8 different models before deciding on the best one. We started with independent variables Total (the # of people in the major), ShareWomen, Part_time, and Non_college_jobs, based on a stepwise regression. After that, we added an interaction between Total and ShareWomen, and all other interactions were insignificant. Next, we added in the IQR we calculated earlier, before finally adding in the binary variable STEM. For each of these combinations of variables, we also tried the same predictors for the log of the Median Salary as well to see if the model predicted that better. We put together the table below, and because of the R-Squared being highest, the RMSE being lowest (even taking into account the RMSE being in terms of log(Median) rather than Median), and the MAE being only negligibly higher than the MAE of ManualLogModel, we decided to use ManualLogModelwSTEM as our best model in predicting a major’s median salaries.
+
+```{r, echo=FALSE}
+recentgrads$TotalTotal<-sum(recentgrads$Total, na.rm=T)
+recentgrads$Proportion<-recentgrads$Total/recentgrads$TotalTotal
+#sum(recentgrads$Proportion, na.rm=T)
+```
+
+
+```{r, echo=FALSE}
+OriginalModel<-lm(Median~Total+ShareWomen+Part_time+Non_college_jobs, data=recentgradsnumericaldata)
+#summary(OriginalModel)
+OriginalLogModel<-lm(log(Median)~Total+ShareWomen+Part_time+Non_college_jobs, data=recentgradsnumericaldata)
+#summary(OriginalLogModel)
+InteractionModel<-lm(Median~Total+ShareWomen+Part_time+Non_college_jobs+I(Total*ShareWomen), data=recentgradsnumericaldata)
+#summary(InteractionModel)
+InteractionLogModel<-lm(log(Median)~Total+ShareWomen+Part_time+Non_college_jobs+I(Total*ShareWomen), data=recentgradsnumericaldata)
+#summary(InteractionLogModel)
+ManualModel<-lm(Median~Total+ShareWomen+Part_time+Non_college_jobs+IQR+I(Total*ShareWomen), data=recentgradsnumericaldata)
+#summary(ManualModel)
+ManualLogModel<-lm(log(Median)~(Total)+ShareWomen+(Part_time)+(Non_college_jobs)+IQR+I((Total)*ShareWomen), data=recentgradsnumericaldata)
+#summary(ManualLogModel)
+ManualModelwSTEM<-lm(Median~Total+ShareWomen+Part_time+Non_college_jobs+IQR+STEM+I(Total*ShareWomen), data=recentgradsnumericaldata)
+#summary(ManualModelwSTEM)
+ManualLogModelwSTEM<-lm(log(Median)~(Total)+ShareWomen+(Part_time)+(Non_college_jobs)+IQR+STEM+I((Total)*ShareWomen), data=recentgradsnumericaldata)
+summary(ManualLogModelwSTEM)
+```
+
+```{r, echo=FALSE, message = F, warning=F}
+df <- data.frame(Model=c(1,2,3,4,5,6,7,8), RSquared=c(1,2,3,4,5,6,7,8), pValue=c(1,2,3,4,5,6,7,8),MAE=c(1,2,3,4,5,6,7,8),RMSE=c(1,2,3,4,5,6,7,8), stringsAsFactors=F)
+df$Model<-c("OriginalModel", "OriginalLogModel","InteractionModel","InteractionLogModel","ManualModel","ManualLogModel","ManualModelwSTEM","ManualLogModelwSTEM")
+df$RSquared<-c(.4742,.4975,.4803,.5046,.5706,.5870,.5783,.5983)
+df$pValue<-c(.00000000000000022,0.00000000000000022,0.00000000000000022,0.00000000000000022,0.00000000000000022,0.00000000000000022,0.00000000000000022,0.00000000000000022)
+library(caret)
+df$MAE<-c(mae(OriginalModel,recentgradsnumericaldata),mae(OriginalLogModel,recentgradsnumericaldata),mae(InteractionModel,recentgradsnumericaldata),mae(InteractionLogModel,recentgradsnumericaldata),mae(ManualModel,recentgradsnumericaldata),mae(ManualLogModel,recentgradsnumericaldata),mae(ManualModelwSTEM,recentgradsnumericaldata),mae(ManualLogModelwSTEM,recentgradsnumericaldata))
+df$RMSE<-c(rmse(OriginalModel,recentgradsnumericaldata),rmse(OriginalLogModel,recentgradsnumericaldata),rmse(InteractionModel,recentgradsnumericaldata),rmse(InteractionLogModel,recentgradsnumericaldata),rmse(ManualModel,recentgradsnumericaldata),rmse(ManualLogModel,recentgradsnumericaldata),rmse(ManualModelwSTEM,recentgradsnumericaldata),rmse(ManualLogModelwSTEM,recentgradsnumericaldata))
+df
+```
+Below, we have both an interactive graph of Actual and Predicted Median Salary and a portion of the table of each major’s Actual and Predicted Median Salary. Although our model predicted the log value of the median salary, we calculated the true predicted salary so that our table and graph are easier to understand.
+
+```{r, echo=FALSE, include= F}
+recentgradsnumericaldata$predictedvalue<-predict.lm(ManualLogModelwSTEM)
+recentgradsnumericaldata%>%dplyr::select(Major,Median,predictedvalue)
+ggplot(data=recentgradsnumericaldata, mapping = aes(x=exp(predictedvalue), color = Major_category, y=Median))+geom_point()+geom_abline(intercept=0,slope=1) + ggtitle ("Predicted vs True Median Salary") +xlab("Predicted Median") + ylab("True Median")
+
+```
+
+```{r, echo=FALSE}
+ggplotly(p = ggplot2::last_plot(), width = NULL, height = NULL, col=ifelse(predictedvalue<=Median,"red","green"),
+  tooltip = c("all"), dynamicTicks = FALSE, layerData = 1,
+  originalData = TRUE, source = "A")
+```
+
+
+
+
+For the second question which is the prediction of various major groups we mainly utilized the same dataset provided in question 1. The aim was to look at how to group the major categories and finding key features which allowed us to see which predictors performed well on our data. STEM jobs are hot in the market currently, having the largest major salaries and lowest unemployment rates.However, they have a reputation for being male dominated field. Thus, we wanted to see which of these assumptions about STEM jobs were true. A classification approach was ideal here, as we could use models such as Logistic Regression and K- nearest neighbors to decide which of the predictors were useful in predicting whether a major was STEM and non-STEM. Before looking at STEM vs. non-STEM, we wanted to gauge how the majors were being clustered based on all the predictors. As we can see the cluster plot doesn’t have many distinct clusters, however we can extract some useful information from the clusters. In the cluster means chart we see that cluster 7 has a higher median salary, lower rate of unemployment and lower rate of women likely displaying a few STEM majors. Although this shows us some information, we can get a better picture by using the classification methods mentioned before.
+
+
+```{r, echo=FALSE}
+df2<-data.frame(recentgradsnumericaldata$Major,recentgradsnumericaldata$Median,(predict.lm(ManualLogModelwSTEM)))
+df2$Major<-df2$recentgradsnumericaldata.Major
+df2$ActualMedianSalary<-df2$recentgradsnumericaldata.Median
+df2$PredictedMedianSalary<-exp((df2$X.predict.lm.ManualLogModelwSTEM..))
+#View(df2)
+df3<-df2%>%dplyr::select(Major,ActualMedianSalary,PredictedMedianSalary)
+```
+```{r,echo=FALSE}
+#head(df3)
+```
+
+```{r, echo=FALSE, message = F, warning=F}
+library(dplyr)
+library(cluster)
+library(Hmisc)
+library(fields)
+newgrads<-recentgrads
+#newgrads
+#unique(newgrads$Major_category)
+newgrads<-newgrads%>%dplyr::select(Major, Major_category, Total, Men, Women, ShareWomen, Sample_size, Employed, Full_time, Part_time, Full_time_year_round, Unemployed, Unemployment_rate, Median, P25th, P75th, College_jobs, Non_college_jobs, Low_wage_jobs)
+newgrads$Full_time_rate<-newgrads$Full_time/newgrads$Total
+newgrads$Part_time_rate<-newgrads$Part_time/newgrads$Total
+newgrads$Full_time_year_round_rate<-newgrads$Full_time_year_round/newgrads$Total
+newgrads$College_jobs_rate<-newgrads$College_jobs/newgrads$Total
+newgrads$Non_college_jobs_rate<-newgrads$Non_college_jobs/newgrads$Total
+newgrads$Low_wage_jobs_rate<-newgrads$Low_wage_jobs/newgrads$Total
+newgradsUnclustered<-newgrads%>%dplyr::select(ShareWomen, Unemployment_rate, Median, Full_time_rate, Part_time_rate, Full_time_year_round_rate, College_jobs_rate, Non_college_jobs_rate, Low_wage_jobs_rate)
+#newgradsUnclustered
+newgradsClustered<- kmeans(na.omit(newgradsUnclustered), centers=16, nstart=25)
+#newgradsClustered
+newgradsAveraged<-newgrads%>%group_by(Major_category)%>%summarise(n(),mean(ShareWomen), mean(Unemployment_rate), mean(Median), mean(Full_time_rate), mean(Part_time_rate), mean(Full_time_year_round_rate), mean(College_jobs_rate), mean(Non_college_jobs_rate), mean(Low_wage_jobs_rate))
+```
+
+
+```{r, echo=FALSE}
+#newgradsAveraged%>%arrange(desc(`n()`))
+print("Diagram of the Different Clusters and the Values")
+print(newgradsClustered$centers)
+#newgradsAveraged
+```
+
+
+
+```{r, echo=FALSE, message=F}
+library(factoextra) # clustering algorithms & visualization
+distance <- get_dist(newgradsUnclustered)
+fviz_cluster(newgradsClustered,data  =  na.omit(newgradsUnclustered))
+
+```
+
+```{r, echo=FALSE}
+logis<-newgrads%>%dplyr::select(Major, Major_category, ShareWomen, Unemployment_rate, Median, Full_time_rate, Part_time_rate, Full_time_year_round_rate, College_jobs_rate, Non_college_jobs_rate, Low_wage_jobs_rate)
+#head(logis)
+```
+
+```{r, echo=FALSE}
+logis$STEM = 0
+
+```
+```{r, echo=FALSE}
+for(row in 1:nrow(logis)){
+  items<- logis[row, "Major_category"]
+  logis[row, "STEM"]
+  if(items == "Engineering"){logis[row, "STEM"] = 1}
+  if(items == "Health"){logis[row, "STEM"] =1}
+  if(items == "Physical Sciences"){logis[row, "STEM"] =1}
+  if(items == "Computers & Mathematics"){logis[row, "STEM"] =1}
+  if(items == "Biology & Life Science"){logis[row, "STEM"] =1}
+  if(items == "Agriculture & Natural Resources"){logis[row, "STEM"] = 1}
+}
+
+```
+
+```{r, echo=FALSE}
+logit <- logis
+#head(logit)
+```
+```{r, echo=FALSE}
+logit[1]<-NULL
+logit[1]<-NULL
+#head(logit)
+```
+
+```{r, echo=FALSE}
+
+smpsize = floor(0.80 * nrow(logit))
+set.seed(1)
+trainsample = sample(seq_len(nrow(logit)), size = smpsize)
+
+train = logit[trainsample,]
+test = logit[-trainsample,]
+```
+
+A common classification discriminant algorithm, logistic regression, was ideal for us in predicting whether a major would classify as a STEM  major. Since we had various quantitative predictor variables in our data set like ShareWomen, Unemployment Rate, Median Salary and Full Time Rate, we needed to be able to find the best few factors to use. Using the bestglm function we found the best models that consisted of the lowest criterion score as shown below. The best model consisted of share of women, median salary, rate of people in full time jobs, rate of jobs that require a college degree, and the rate of jobs that had a low wage. We also wanted to consider how some of the other models did so we took the model with all predictors in the recent grads, the best model,  and then the second and third best models which have their properties shown with a “TRUE” for the included properties in the table below.
+
+In order to further compare these model we used a test/train split cross validation approach to train our models and then predict values in the test set using an 80:20 split. After applying the model to the test set we accumulated values for the accuracy and the errors for each model. What we saw was that the model with all the variables had the highest accuracy and the lowest errors, which is different from the results that the best glm function gave us. We saw the lowest accuracy for the best model achieved from the bestglm function which shows us that there may have been a greater number of STEM majors, giving us a variance in the sensitivity and specificity values due to a higher number of majors being predicted as STEM. Overfitting could be another area of concern with the full model since it might work best on this data, but not with other sources. Furthermore, we did see however high accuracy values, between 82% and 88%, showing us that the logistic regression did have some significant predictors like Share of Women, Full Time Rate and Median salary, which had the lowest p-values in the logistic full model.
+
+
+```{r, echo = FALSE, include = FALSE}
+library(bestglm)
+#head(train)
+logbest <- bestglm(data.frame(logit), family= binomial, nvmax = 9)
+```
+
+```{r, echo = FALSE}
+logbest$BestModels
+```
+
+
+```{r, echo=FALSE}
+
+logmod1 <- glm(STEM~.,family=binomial(link='logit'),data=train)
+logmod2 <- glm(STEM~ShareWomen+Median+ Full_time_rate +College_jobs_rate + Low_wage_jobs_rate ,family=binomial(link='logit'),data=train)
+logmod3 <- glm(STEM~ShareWomen+Full_time_rate +College_jobs_rate + Low_wage_jobs_rate,family=binomial(link='logit'),data=train)
+logmod4 <- glm(STEM~ShareWomen+Median+ Full_time_rate +College_jobs_rate + Low_wage_jobs_rate +Non_college_jobs_rate,family=binomial(link='logit'),data=train)
+
+print(paste("This is the summary of the best Model"))
+summary(logmod2)
+
+```
+
+```{r, echo=FALSE}
+library(caret)
+printstats <- function(model) {
+  
+
+  fitted.results <- predict(model,newdata=test ,type='response')
+  fitted.results <- ifelse(fitted.results > 0.5,1,0)
+  misClasificError <- mean(fitted.results != test$STEM)
+#  print(paste('Accuracy',1-misClasificError))
+  data.frame(
+            Accuracy = 1-misClasificError,
+            R2 = R2(fitted.results, test$STEM),
+            RMSE = RMSE(fitted.results, test$STEM),
+            MAE = MAE(fitted.results, test$STEM))
+}
+
+```
+
+```{r, echo=FALSE}
+print("Full Model")
+printstats(logmod1)
+print("Best bestglm Model")
+printstats(logmod2)
+print("Second Best Model")
+printstats(logmod3)
+print("Third best Model")
+printstats(logmod4)
+```
+
+
+After finding the most reliable predictors to be share of women, full time rate and median salary, we wanted to look at how closely surrounding data points will be used in predicting whether a major would be STEM or not. A method known as K-nearest neighbors was used, allowing us to see the optimal number of neighbors that would predict values from the best bestglm model found earlier. By using this method and looking at the accuracy score for each value of k, we found the optimal k to be 3 with a 76.1% accuracy rate. The graph below shows the accuracy for each k neighbors, with the max being the peak at k= 3. The accuracy starts high and then goes up till k= 3, then decreasing till we reach our max k at 171, which was the number of data points we had. This shows that majors having values close to each other will be optimal predictors, while as we introduce other points the accuracy of the prediction will dramatically decrease.
+
+
+```{r, echo=FALSE, include = F}
+library(class)
+logit = na.omit(logit)
+accuracy.k = 0
+for(k in 1:171){
+  cv.out=knn.cv(train = select(logit, ShareWomen,Median, Full_time_rate ,College_jobs_rate, Low_wage_jobs_rate,Non_college_jobs_rate),
+                cl=logit$STEM,
+                k=k)
+
+  correct=mean(cv.out==logit$STEM)
+  accuracy.k[k]=correct
+}
+
+best.k=which.max(accuracy.k)
+possible.k=1:171
+```
+
+```{r, echo=FALSE}
+ggplot(data=tibble(possible.k,accuracy.k)) +
+  geom_line(aes(x=possible.k,y=accuracy.k),color="lightskyblue2",size=2) +
+  theme_minimal() +
+  xlab("Choice of k") +
+  ylab("Prop of Accurate Predictions") +
+  theme(text=element_text(size=20))
+#print(max(accuracy.k))
+#print(best.k)
+```
+
+
+
+
+
+#CONCLUSION
+In our first question, we attempted to build a model that would best predict the median salary for all students in a given major. Our best model used the total number of students in the major, the share of those students that are women, the number of people working part time jobs, the number of people working non-college jobs, the interquartile range of the major’s salary, whether or not the major is STEM, and the interaction between Total and ShareWomen to predict the log of each major’s median salary. Of these, all of the terms were significant at the alpha=0.05 significance level except for our interaction term, and we had an R-Squared of 59.83%, meaning that our model accounted for nearly 60% of the variation in the data.
+
+As far as the second question goes, we were mainly trying to group our data into stem and non-stem. The cluster chart gave us useful information as to what majors are similar to each other and how some of the trends in the data were looking. Majors with higher median salaries are likely to be clustered majors with lower unemployment rate, and lower shares of women. We then found a good classification of STEM majors with logistic regression to use a combination of share of women, median salary, rate of people in full time jobs, rate of jobs that require a college degree, and the rate of jobs that had a low wage. Although we saw lower accuracy rates for this model when performing the cross validation, it was likely due to the other models selecting STEM more frequently, and getting the prediction right due to a higher percentage of samples being STEM. This model was however had 82% accuracy so we could accurately predict whether a major was STEM or not. Lastly, we tested K-nearest neighbors to find out how neighboring points would be sufficient in the determination if a major was likely to have STEM-like unemployment and salary properties. We eventually determined that 3 neighbors was sufficient and provided the best accuracy at around 76%.
+
+As we mentioned in our introduction, the median starting salary for a major is important because it impacts many people’s decisions when deciding what they want to do in their career. If we had more data on each major, such as what schools people went to, their average GPAs, etc, our model would likely perform even better in predicting a major’s median starting salary. Moreover, it is not surprising that there are many students pursuing STEM as career paths, as the clustering charts and the logistic model showed job stability through high median salaries, low unemployment rates and higher full time rates which were good predictors of a major being STEM or not. The share of women was also insightful here because we see a lot of people influencing high school girls to enroll in STEM majors, due to the lower ratio of women to men. The logistic regression showed that the share of women was significant in predicting a STEM major, showing that there is some discrepancy between the ratio of men and women in STEM fields. Something to further look at would be women enrollment in these majors over time to see if the current efforts to introduce women to STEM are indeed effective.
+
+
+
+
+
